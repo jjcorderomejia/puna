@@ -1,0 +1,41 @@
+model_list:
+  # Fast path — deepseek-chat (V3)
+  - model_name: deepseek-chat
+    litellm_params:
+      model: openai/deepseek-chat
+      api_key: os.environ/DEEPSEEK_API_KEY
+      api_base: https://api.deepseek.com
+      timeout: 60
+      stream_timeout: 60
+      max_retries: 2
+
+  # Thinking path — deepseek-reasoner (R1)
+  - model_name: deepseek-reasoner
+    litellm_params:
+      model: openai/deepseek-reasoner
+      api_key: os.environ/DEEPSEEK_API_KEY
+      api_base: https://api.deepseek.com
+      timeout: 300
+      stream_timeout: 300
+      max_retries: 1
+
+router_settings:
+  num_retries: 2
+  timeout: 300
+  retry_after: 5
+
+litellm_settings:
+  cache: true
+  cache_params:
+    type: redis
+    host: puna-redis
+    port: 6379
+    ttl: 7200
+    namespace: puna
+  set_verbose: false
+  json_logs: true
+
+general_settings:
+  host: 127.0.0.1
+  port: 4000
+  master_key: os.environ/LITELLM_MASTER_KEY

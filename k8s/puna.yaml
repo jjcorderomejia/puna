@@ -1,0 +1,117 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: puna
+  namespace: puna
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: puna
+  template:
+    metadata:
+      labels:
+        app: puna
+    spec:
+      # ── Volumes ──────────────────────────────────────────────────────────────
+      volumes:
+        - name: workspace
+          persistentVolumeClaim:
+            claimName: puna-workspace
+        - name: litellm-config
+          configMap:
+            name: puna-litellm-config
+
+      imagePullSecrets:
+        - name: ghcr-creds
+
+      # ── Init: wait for Redis before starting ─────────────────────────────────
+      initContainers:
+        - name: wait-for-redis
+          image: redis:7-alpine
+          command: ["sh", "-c", "until redis-cli -h puna-redis ping; do sleep 2; done"]
+
+      containers:
+        # ── LiteLLM sidecar ───────────────────────────────────────────────────
+        - name: litellm
+          image: ghcr.io/berriai/litellm:main-latest
+          args:
+            - "--config"
+            - "/etc/litellm/config.yaml"
+            - "--host"
+            - "127.0.0.1"
+            - "--port"
+            - "4000"
+          ports:
+            - containerPort: 4000
+          volumeMounts:
+            - name: litellm-config
+              mountPath: /etc/litellm
+          env:
+            - name: DEEPSEEK_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: puna-secrets
+                  key: DEEPSEEK_API_KEY
+            - name: LITELLM_MASTER_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: puna-secrets
+                  key: LITELLM_MASTER_KEY
+            # Override Redis host to use K8s service name
+            - name: REDIS_HOST
+              value: "puna-redis"
+          resources:
+            requests:
+              cpu: "500m"
+              memory: "512Mi"
+            limits:
+              cpu: "1000m"
+              memory: "1Gi"
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+              host: 127.0.0.1
+            initialDelaySeconds: 15
+            periodSeconds: 20
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: 4000
+              host: 127.0.0.1
+            initialDelaySeconds: 10
+            periodSeconds: 10
+
+        # ── Claudex (coding agent) ────────────────────────────────────────────
+        - name: claudex
+          image: ghcr.io/jjcorderomejia/puna-claudex:${GIT_SHA}
+          imagePullPolicy: Always
+          stdin: true
+          tty: true
+          volumeMounts:
+            - name: workspace
+              mountPath: /workspace
+          env:
+            # Claudex built-in OpenAI shim — points at LiteLLM cache sidecar
+            - name: CLAUDE_CODE_USE_OPENAI
+              value: "1"
+            - name: OPENAI_BASE_URL
+              value: "http://localhost:4000"
+            - name: OPENAI_API_KEY
+              value: "sk-puna-local"
+            - name: OPENAI_MODEL
+              value: "deepseek-chat"
+            - name: NODE_OPTIONS
+              value: "--max-old-space-size=2048"
+          resources:
+            requests:
+              cpu: "1000m"
+              memory: "2Gi"
+            limits:
+              cpu: "3000m"   # up to 3 of 6 cores
+              memory: "4Gi"
+          # If Claudex crashes, restart it — don't lose the session silently
+          # (workspace state is safe on PVC)

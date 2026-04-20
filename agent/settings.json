@@ -1,0 +1,8 @@
+{
+  "telemetry": false,
+  "autoUpdaterStatus": "disabled",
+  "model": "claude-3-5-sonnet-20241022",
+  "theme": "dark",
+  "preferredNotifChannel": "terminal_bell",
+  "hasAcknowledgedCostThreshold": true
+}

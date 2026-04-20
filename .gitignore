@@ -1,0 +1,5 @@
+k8s/secret.yaml
+.env
+.env.*
+# Vendored source — large, owned locally, not tracked
+claudex-src/

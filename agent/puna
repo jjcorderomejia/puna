@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# PUNA entrypoint — model selector wrapper around claude
+# Usage:
+#   puna            → deepseek-chat     (fast, default)
+#   puna --think    → deepseek-reasoner (R1, thorough)
+set -euo pipefail
+
+if [[ "${1:-}" == "--think" ]]; then
+  shift
+  export OPENAI_MODEL="deepseek-reasoner"
+  echo "[puna] deepseek-reasoner (R1) — expect slower responses"
+else
+  export OPENAI_MODEL="deepseek-chat"
+fi
+
+exec claude "$@"
