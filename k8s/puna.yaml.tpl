@@ -13,7 +13,6 @@ spec:
       labels:
         app: puna
     spec:
-      # ── Volumes ──────────────────────────────────────────────────────────────
       volumes:
         - name: workspace
           persistentVolumeClaim:
@@ -25,16 +24,20 @@ spec:
       imagePullSecrets:
         - name: ghcr-creds
 
-      # ── Init: wait for Redis before starting ─────────────────────────────────
       initContainers:
         - name: wait-for-redis
           image: redis:7-alpine
-          command: ["sh", "-c", "until redis-cli -h puna-redis ping; do sleep 2; done"]
+          command: ["sh", "-c", "until redis-cli --no-auth-warning -a $REDIS_PASSWORD -h puna-redis ping; do sleep 2; done"]
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: puna-secrets
+                  key: REDIS_PASSWORD
 
       containers:
-        # ── LiteLLM sidecar ───────────────────────────────────────────────────
         - name: litellm
-          image: ghcr.io/berriai/litellm:main-latest
+          image: ghcr.io/berriai/litellm:main-v1.83.10
           args:
             - "--config"
             - "/etc/litellm/config.yaml"
@@ -58,9 +61,13 @@ spec:
                 secretKeyRef:
                   name: puna-secrets
                   key: LITELLM_MASTER_KEY
-            # Override Redis host to use K8s service name
             - name: REDIS_HOST
               value: "puna-redis"
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: puna-secrets
+                  key: REDIS_PASSWORD
           resources:
             requests:
               cpu: "500m"
@@ -85,7 +92,6 @@ spec:
             initialDelaySeconds: 10
             periodSeconds: 10
 
-        # ── Claudex (coding agent) ────────────────────────────────────────────
         - name: claudex
           image: ghcr.io/jjcorderomejia/puna-claudex:${GIT_SHA}
           imagePullPolicy: Always
@@ -95,7 +101,6 @@ spec:
             - name: workspace
               mountPath: /workspace
           env:
-            # Claudex built-in OpenAI shim — points at LiteLLM cache sidecar
             - name: CLAUDE_CODE_USE_OPENAI
               value: "1"
             - name: OPENAI_BASE_URL
@@ -111,7 +116,5 @@ spec:
               cpu: "1000m"
               memory: "2Gi"
             limits:
-              cpu: "3000m"   # up to 3 of 6 cores
+              cpu: "3000m"
               memory: "4Gi"
-          # If Claudex crashes, restart it — don't lose the session silently
-          # (workspace state is safe on PVC)

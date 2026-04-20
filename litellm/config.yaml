@@ -30,6 +30,7 @@ litellm_settings:
     type: redis
     host: puna-redis
     port: 6379
+    password: os.environ/REDIS_PASSWORD
     ttl: 7200
     namespace: puna
   set_verbose: false

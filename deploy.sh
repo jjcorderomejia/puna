@@ -33,7 +33,8 @@ if ! kubectl -n puna get secret puna-secrets &>/dev/null; then
   echo
   kubectl -n puna create secret generic puna-secrets \
     --from-literal=DEEPSEEK_API_KEY="${DEEPSEEK_API_KEY}" \
-    --from-literal=LITELLM_MASTER_KEY="$(openssl rand -hex 32)"
+    --from-literal=LITELLM_MASTER_KEY="$(openssl rand -hex 32)" \
+  --from-literal=REDIS_PASSWORD="$(openssl rand -hex 32)"
   unset DEEPSEEK_API_KEY
 fi
 
@@ -54,7 +55,9 @@ kubectl apply -f k8s/pvc.yaml
 kubectl apply -f k8s/redis.yaml
 kubectl apply -f k8s/configmap.yaml
 
-envsubst '${GIT_SHA}' < k8s/puna.yaml | kubectl apply -f -
+mkdir -p k8s/_rendered
+envsubst '${GIT_SHA}' < k8s/puna.yaml.tpl > k8s/_rendered/puna.yaml
+kubectl apply -f k8s/_rendered/puna.yaml
 
 # ── 4. Wait ───────────────────────────────────────────────────────────────────
 _wait_deploy puna-redis

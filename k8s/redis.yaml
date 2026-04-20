@@ -16,9 +16,15 @@ spec:
       containers:
         - name: redis
           image: redis:7-alpine
-          args: ["redis-server", "--save", "", "--appendonly", "no"]
+          command: ["sh", "-c", "redis-server --save '' --appendonly no --requirepass $REDIS_PASSWORD"]
           ports:
             - containerPort: 6379
+          env:
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: puna-secrets
+                  key: REDIS_PASSWORD
           resources:
             requests:
               cpu: "250m"
@@ -28,7 +34,7 @@ spec:
               memory: "512Mi"
           livenessProbe:
             exec:
-              command: ["redis-cli", "ping"]
+              command: ["sh", "-c", "redis-cli --no-auth-warning -a $REDIS_PASSWORD ping"]
             initialDelaySeconds: 5
             periodSeconds: 10
 ---
@@ -43,4 +49,4 @@ spec:
   ports:
     - port: 6379
       targetPort: 6379
-  clusterIP: None  # headless — accessed by name within namespace
+  clusterIP: None
