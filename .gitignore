@@ -1,5 +1,11 @@
 k8s/secret.yaml
 .env
 .env.*
+*secret*
+*credentials*
+*.tfstate
+*.tfstate.backup
+*.tfvars
+_rendered/
 # Vendored source — large, owned locally, not tracked
 claudex-src/

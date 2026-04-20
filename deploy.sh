@@ -4,7 +4,7 @@ set -euo pipefail
 export REGISTRY=ghcr.io
 export ORG=jjcorderomejia
 export IMAGE_NS=$REGISTRY/$ORG
-export REPO_ROOT=/home/jjcm/puna
+export REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 export GIT_SHA=$(git -C $REPO_ROOT rev-parse --short HEAD)
 
 echo "GIT_SHA=${GIT_SHA}"
@@ -43,6 +43,7 @@ if [[ "${1:-}" == "--build" ]]; then
     echo "[puna] claudex-src not found — run ./vendor.sh first"
     exit 1
   fi
+  bash "$REPO_ROOT/patch/model-picker.sh"
   echo "[puna] Building $IMAGE_NS/puna-claudex:$GIT_SHA"
   docker build -t "$IMAGE_NS/puna-claudex:$GIT_SHA" "$REPO_ROOT"
   docker push "$IMAGE_NS/puna-claudex:$GIT_SHA"

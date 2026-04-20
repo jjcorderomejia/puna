@@ -3,7 +3,7 @@
 # After this, delete or ignore the remote repo — we never need it again.
 set -euo pipefail
 
-DEST="/home/jjcm/puna/claudex-src"
+DEST="$(cd "$(dirname "$0")" && pwd)/claudex-src"
 
 if [[ -d "$DEST" ]]; then
   echo "[puna] claudex-src already exists — skipping. Delete it and re-run to refresh."
