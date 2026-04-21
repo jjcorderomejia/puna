@@ -4,5 +4,6 @@
   "model": "deepseek-chat",
   "theme": "dark",
   "preferredNotifChannel": "terminal_bell",
-  "hasAcknowledgedCostThreshold": true
+  "hasAcknowledgedCostThreshold": true,
+  "availableModels": ["deepseek-chat", "deepseek-reasoner"]
 }
