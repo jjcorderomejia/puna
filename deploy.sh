@@ -8,18 +8,20 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
-PUNA_IMAGE="ghcr.io/jjcorderomejia/puna-claudex:${1:-latest}"
+export PUNA_IMAGE="ghcr.io/jjcorderomejia/puna-claudex:${1:-latest}"
+export STORAGE_CLASS="${STORAGE_CLASS:-local-path}"
 
 _wait_deploy() { kubectl -n puna rollout status deployment/"$1" --timeout=120s; }
 
+mkdir -p "$REPO_ROOT/k8s/_rendered"
+envsubst '${STORAGE_CLASS}' < "$REPO_ROOT/k8s/pvc.yaml.tpl"  > "$REPO_ROOT/k8s/_rendered/pvc.yaml"
+envsubst '${PUNA_IMAGE}'    < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+
 kubectl apply -f "$REPO_ROOT/k8s/namespace.yaml"
-kubectl apply -f "$REPO_ROOT/k8s/pvc.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/_rendered/pvc.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/redis.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/configmap.yaml"
-
-mkdir -p "$REPO_ROOT/k8s/_rendered"
-export PUNA_IMAGE
-envsubst '${PUNA_IMAGE}' < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/netpol.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/_rendered/puna.yaml"
 
 _wait_deploy puna-redis

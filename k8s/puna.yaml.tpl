@@ -13,6 +13,14 @@ spec:
       labels:
         app: puna
     spec:
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault
+
       volumes:
         - name: workspace
           persistentVolumeClaim:
@@ -28,6 +36,11 @@ spec:
         - name: wait-for-redis
           image: redis:7-alpine
           command: ["sh", "-c", "until redis-cli --no-auth-warning -a $REDIS_PASSWORD -h puna-redis ping; do sleep 2; done"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            runAsUser: 999
           env:
             - name: REDIS_PASSWORD
               valueFrom:
@@ -47,6 +60,10 @@ spec:
             - "4000"
           ports:
             - containerPort: 4000
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           volumeMounts:
             - name: litellm-config
               mountPath: /etc/litellm
@@ -97,6 +114,10 @@ spec:
           imagePullPolicy: Always
           stdin: true
           tty: true
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
           volumeMounts:
             - name: workspace
               mountPath: /workspace

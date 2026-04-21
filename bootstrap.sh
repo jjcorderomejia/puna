@@ -25,7 +25,8 @@ _check_prereqs
 # ── 0. Namespace ──────────────────────────────────────────────────────────────
 kubectl apply -f "$REPO_ROOT/k8s/namespace.yaml"
 
-# ── 1. Secrets (idempotent) ───────────────────────────────────────────────────
+# ── 1. Secrets
+ (idempotent) ───────────────────────────────────────────────────
 
 # Registry pull secret — read-only token, never touches Docker
 if ! kubectl -n puna get secret ghcr-creds &>/dev/null; then
@@ -54,16 +55,18 @@ fi
 
 # ── 2. Manifests ──────────────────────────────────────────────────────────────
 
-# Resolve image — use latest tag by default, allow override via env
-PUNA_IMAGE="${PUNA_IMAGE:-ghcr.io/jjcorderomejia/puna-claudex:latest}"
-
-kubectl apply -f "$REPO_ROOT/k8s/pvc.yaml"
-kubectl apply -f "$REPO_ROOT/k8s/redis.yaml"
-kubectl apply -f "$REPO_ROOT/k8s/configmap.yaml"
+export PUNA_IMAGE="${PUNA_IMAGE:-ghcr.io/jjcorderomejia/puna-claudex:latest}"
+export STORAGE_CLASS="${STORAGE_CLASS:-local-path}"
 
 mkdir -p "$REPO_ROOT/k8s/_rendered"
-export PUNA_IMAGE
-envsubst '${PUNA_IMAGE}' < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+envsubst '${STORAGE_CLASS}' < "$REPO_ROOT/k8s/pvc.yaml.tpl"  > "$REPO_ROOT/k8s/_rendered/pvc.yaml"
+envsubst '${PUNA_IMAGE}'    < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+
+kubectl apply -f "$REPO_ROOT/k8s/namespace.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/_rendered/pvc.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/redis.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/configmap.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/netpol.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/_rendered/puna.yaml"
 
 # ── 3. Wait for healthy rollout ───────────────────────────────────────────────
