@@ -55,14 +55,12 @@ fi
 # ── 2. Manifests ──────────────────────────────────────────────────────────────
 
 export PUNA_IMAGE="${PUNA_IMAGE:-ghcr.io/jjcorderomejia/puna-claudex:latest}"
-export STORAGE_CLASS="${STORAGE_CLASS:-local-path}"
+export HOST_HOME="${HOST_HOME:-$HOME}"
 
 mkdir -p "$REPO_ROOT/k8s/_rendered"
-envsubst '${STORAGE_CLASS}' < "$REPO_ROOT/k8s/pvc.yaml.tpl"  > "$REPO_ROOT/k8s/_rendered/pvc.yaml"
-envsubst '${PUNA_IMAGE}'    < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+envsubst '${PUNA_IMAGE} ${HOST_HOME}' < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
 
 kubectl apply -f "$REPO_ROOT/k8s/namespace.yaml"
-kubectl apply -f "$REPO_ROOT/k8s/_rendered/pvc.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/redis.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/configmap.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/netpol.yaml"
@@ -73,7 +71,24 @@ echo "[puna] waiting for rollout..."
 _wait_deploy puna-redis
 _wait_deploy puna
 
+# ── 4. Install local puna wrapper ─────────────────────────────────────────────
+WRAPPER=/usr/local/bin/puna
+cat > /tmp/puna-wrapper <<'EOF'
+#!/usr/bin/env bash
+exec kubectl exec -it -n puna deploy/puna -c claudex -- puna "$@"
+EOF
+if install -m 755 /tmp/puna-wrapper "$WRAPPER" 2>/dev/null; then
+  echo "[puna] installed wrapper → $WRAPPER"
+elif sudo install -m 755 /tmp/puna-wrapper "$WRAPPER"; then
+  echo "[puna] installed wrapper → $WRAPPER (sudo)"
+else
+  echo "[puna] could not install to $WRAPPER — add this to your shell:" >&2
+  echo "  alias puna='kubectl exec -it -n puna deploy/puna -c claudex -- puna'" >&2
+fi
+rm -f /tmp/puna-wrapper
+
 echo ""
 echo "[puna] ready."
-echo "  kubectl exec -it -n puna deploy/puna -c claudex -- puna"
-echo "  kubectl exec -it -n puna deploy/puna -c claudex -- puna --think"
+echo "  puna                        # start in home dir"
+echo "  puna /path/to/project       # start in a specific project"
+echo "  puna --think /path/project  # R1 reasoning mode"

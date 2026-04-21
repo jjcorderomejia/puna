@@ -19,9 +19,10 @@ spec:
           type: RuntimeDefault
 
       volumes:
-        - name: workspace
-          persistentVolumeClaim:
-            claimName: puna-workspace
+        - name: home
+          hostPath:
+            path: ${HOST_HOME}
+            type: Directory
         - name: litellm-config
           configMap:
             name: puna-litellm-config
@@ -116,8 +117,8 @@ spec:
             runAsUser: 1000
             runAsGroup: 1000
           volumeMounts:
-            - name: workspace
-              mountPath: /workspace
+            - name: home
+              mountPath: ${HOST_HOME}
           env:
             - name: CLAUDE_CODE_USE_OPENAI
               value: "1"
@@ -127,6 +128,8 @@ spec:
               value: "sk-puna-local"
             - name: OPENAI_MODEL
               value: "deepseek-chat"
+            - name: HOST_HOME
+              value: "${HOST_HOME}"
             - name: NODE_OPTIONS
               value: "--max-old-space-size=2048"
           resources:

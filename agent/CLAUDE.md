@@ -20,9 +20,9 @@ was asked.
 - Tests: integration over unit when touching DB or external APIs
 
 ## Workspace
-- All project work lives under `/workspace`
-- Persist state in `/workspace/.puna/` (notes, context, scratch)
-- Never write outside `/workspace` unless explicitly instructed
+- Full access to the user's home directory (mounted at the same path as on the host)
+- Memory and context persist in `.claude/` inside each project directory, exactly as Claude Code does locally
+- Start each session in the project directory passed at launch; default is `$HOST_HOME`
 
 ## Cost awareness
 - Prefer shorter, focused prompts — DeepSeek charges per token

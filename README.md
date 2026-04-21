@@ -31,6 +31,8 @@ flowchart LR
 
 Claudex starts with `CLAUDE_CODE_USE_OPENAI=1` pointing at `http://localhost:4000`. LiteLLM receives the request, checks Redis (TTL 2h), and either returns the cached response or forwards to DeepSeek. The model names Claudex sees (`deepseek-chat`, `deepseek-reasoner`) are patched into the source before the image build — the `/model` picker shows only the two DeepSeek models.
 
+The claudex container mounts the server user's home directory at the same path it has on the host, so all projects are immediately available at their real paths — no syncing, no cloning. Agent memory persists in `.claude/` inside each project directory, exactly as Claude Code does locally.
+
 Two models are available:
 
 | Model | Use |
@@ -48,7 +50,7 @@ Two models are available:
 | API router | LiteLLM | v1.83.10 (pinned) |
 | Response cache | Redis | 7-alpine |
 | Inference | DeepSeek API | V3 / R1 |
-| Workspace storage | K8s PVC (configurable storage class) | — |
+| Workspace storage | hostPath (server home dir, same path as host) | — |
 | Registry | GHCR | — |
 | Platform | Kubernetes | — |
 
@@ -70,7 +72,7 @@ Two models are available:
 
 **Network policy enforces least privilege.** The puna pod has no ingress and restricted egress: DNS, Redis (in-cluster only), and port 443 to public IPs (DeepSeek API). The Redis pod accepts connections only from the puna pod. `kubectl exec` tunnels through the K8s API server and is unaffected.
 
-**All manifest variables are template-substituted.** `puna.yaml.tpl` and `pvc.yaml.tpl` use `envsubst` at apply time. `${PUNA_IMAGE}` selects the image tag; `${STORAGE_CLASS}` selects the PVC storage class (default: `local-path`) — making the stack portable across local clusters, EKS, GKE, and AKS without editing files.
+**All manifest variables are template-substituted.** `puna.yaml.tpl` uses `envsubst` at apply time. `${PUNA_IMAGE}` selects the image tag; `${HOST_HOME}` is the server user's home directory (defaults to `$HOME` of whoever runs `bootstrap.sh`) — making the stack portable across any K8s cluster and any user, with no file edits required.
 
 **Secrets are typed once, never stored in files.** `bootstrap.sh` prompts for the GHCR read-only token and DeepSeek API key on first run and passes them directly to `kubectl create secret`. `LITELLM_MASTER_KEY` and `REDIS_PASSWORD` are generated with `openssl rand -hex 32` — no human ever sees them. All subsequent runs skip the prompt if the secrets already exist in K8s.
 
@@ -104,12 +106,11 @@ After `./bootstrap.sh` runs once, zero human interaction is required at runtime.
 
 Checks prerequisites (`kubectl`, `openssl`, cluster access), prompts for registry pull token and DeepSeek API key, generates all internal secrets, applies manifests, and waits for a healthy rollout.
 
-**Override image or storage class (optional):**
+**Override image or home dir (optional):**
 
 ```bash
 PUNA_IMAGE=ghcr.io/jjcorderomejia/puna-claudex:abc1234 ./bootstrap.sh
-STORAGE_CLASS=gp2 ./bootstrap.sh   # EKS
-STORAGE_CLASS=standard ./bootstrap.sh   # GKE / AKS
+HOST_HOME=/home/alice ./bootstrap.sh   # if running bootstrap.sh as a different user
 ```
 
 **Dev — re-apply manifests with a specific tag:**
@@ -125,14 +126,17 @@ Assumes secrets already exist in K8s. Skips all prompts.
 ## Connect
 
 ```bash
-# Standard mode
+# Start in home dir (default)
 kubectl exec -it -n puna deploy/puna -c claudex -- puna
 
-# Reasoning mode (R1)
-kubectl exec -it -n puna deploy/puna -c claudex -- puna --think
+# Start in a specific project
+kubectl exec -it -n puna deploy/puna -c claudex -- puna /home/jjcm/huanca
+
+# Reasoning mode (R1) in a specific project
+kubectl exec -it -n puna deploy/puna -c claudex -- puna --think /home/jjcm/huanca
 ```
 
-Work persists in the PVC at `/workspace` across pod restarts.
+All projects are available at their real server paths. Agent memory persists in `.claude/` inside each project directory across pod restarts.
 
 ---
 
@@ -150,8 +154,7 @@ puna/
 ├── k8s/
 │   ├── namespace.yaml
 │   ├── netpol.yaml             # network policy — zero ingress, restricted egress
-│   ├── puna.yaml.tpl           # main deployment template (${PUNA_IMAGE})
-│   ├── pvc.yaml.tpl            # PVC template (${STORAGE_CLASS})
+│   ├── puna.yaml.tpl           # main deployment template (${PUNA_IMAGE}, ${HOST_HOME})
 │   ├── redis.yaml
 │   └── configmap.yaml          # LiteLLM config mounted into sidecar
 ├── patch/
