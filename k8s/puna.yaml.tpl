@@ -92,14 +92,14 @@ spec:
               memory: "1Gi"
           livenessProbe:
             exec:
-              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health')"]
+              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')"]
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             exec:
-              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health')"]
+              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')"]
             initialDelaySeconds: 10
             periodSeconds: 10
 
