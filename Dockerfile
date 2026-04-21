@@ -10,7 +10,7 @@ COPY claudex-src/ .
 
 RUN bun install --frozen-lockfile
 RUN bun run build
-RUN npm pack --pack-destination /tmp/claudex-pkg
+RUN mkdir -p /tmp/claudex-pkg && npm pack --pack-destination /tmp/claudex-pkg
 
 FROM node:20-alpine
 
