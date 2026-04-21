@@ -52,15 +52,24 @@ if ! kubectl -n puna get secret puna-secrets &>/dev/null; then
   unset DEEPSEEK_API_KEY
 fi
 
+# Postgres secret — auto-generated, separate from puna-secrets
+if ! kubectl -n puna get secret puna-postgres-secret &>/dev/null; then
+  kubectl -n puna create secret generic puna-postgres-secret \
+    --from-literal=POSTGRES_PASSWORD="$(openssl rand -hex 32)"
+fi
+
 # ── 2. Manifests ──────────────────────────────────────────────────────────────
 
 export PUNA_IMAGE="${PUNA_IMAGE:-ghcr.io/jjcorderomejia/puna-claudex:latest}"
 export HOST_HOME="${HOST_HOME:-$HOME}"
+export STORAGE_CLASS="${STORAGE_CLASS:-local-path}"
 
 mkdir -p "$REPO_ROOT/k8s/_rendered"
-envsubst '${PUNA_IMAGE} ${HOST_HOME}' < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+envsubst '${PUNA_IMAGE} ${HOST_HOME}' < "$REPO_ROOT/k8s/puna.yaml.tpl"    > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+envsubst '${STORAGE_CLASS}'           < "$REPO_ROOT/k8s/postgres.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/postgres.yaml"
 
 kubectl apply -f "$REPO_ROOT/k8s/namespace.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/_rendered/postgres.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/redis.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/configmap.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/netpol.yaml"
@@ -68,6 +77,7 @@ kubectl apply -f "$REPO_ROOT/k8s/_rendered/puna.yaml"
 
 # ── 3. Wait for healthy rollout ───────────────────────────────────────────────
 echo "[puna] waiting for rollout..."
+_wait_deploy puna-postgres
 _wait_deploy puna-redis
 _wait_deploy puna
 

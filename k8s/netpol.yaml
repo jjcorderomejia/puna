@@ -24,6 +24,12 @@ spec:
       ports:
         - port: 6379
     - to:
+        - podSelector:
+            matchLabels:
+              app: puna-postgres
+      ports:
+        - port: 5432
+    - to:
         - ipBlock:
             cidr: 0.0.0.0/0
             except:
@@ -52,4 +58,25 @@ spec:
               app: puna
       ports:
         - port: 6379
+  egress: []
+---
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: puna-postgres
+  namespace: puna
+spec:
+  podSelector:
+    matchLabels:
+      app: puna-postgres
+  policyTypes:
+    - Ingress
+    - Egress
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: puna
+      ports:
+        - port: 5432
   egress: []

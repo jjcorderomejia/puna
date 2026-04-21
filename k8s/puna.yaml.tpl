@@ -31,6 +31,14 @@ spec:
         - name: ghcr-creds
 
       initContainers:
+        - name: wait-for-postgres
+          image: postgres:16-alpine
+          command: ["sh", "-c", "until pg_isready -h puna-postgres -U litellm; do sleep 2; done"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            runAsUser: 999
         - name: wait-for-redis
           image: redis:7-alpine
           command: ["sh", "-c", "until redis-cli --no-auth-warning -a $REDIS_PASSWORD -h puna-redis ping; do sleep 2; done"]
@@ -77,6 +85,15 @@ spec:
                 secretKeyRef:
                   name: puna-secrets
                   key: LITELLM_MASTER_KEY
+            - name: POSTGRES_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: puna-postgres-secret
+                  key: POSTGRES_PASSWORD
+            - name: DATABASE_URL
+              value: "postgresql://litellm:$(POSTGRES_PASSWORD)@puna-postgres:5432/litellm"
+            - name: LITELLM_LOCAL_MODEL_COST_MAP
+              value: "True"
             - name: REDIS_HOST
               value: "puna-redis"
             - name: REDIS_PASSWORD
@@ -86,11 +103,11 @@ spec:
                   key: REDIS_PASSWORD
           resources:
             requests:
-              cpu: "500m"
-              memory: "512Mi"
+              cpu: "250m"
+              memory: "256Mi"
             limits:
               cpu: "1000m"
-              memory: "1Gi"
+              memory: "2Gi"
           livenessProbe:
             exec:
               command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health/liveliness')"]
@@ -125,7 +142,10 @@ spec:
             - name: OPENAI_BASE_URL
               value: "http://localhost:4000"
             - name: OPENAI_API_KEY
-              value: "sk-puna-local"
+              valueFrom:
+                secretKeyRef:
+                  name: puna-secrets
+                  key: LITELLM_MASTER_KEY
             - name: OPENAI_MODEL
               value: "deepseek-chat"
             - name: HOST_HOME

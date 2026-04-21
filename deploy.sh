@@ -10,18 +10,23 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
 export PUNA_IMAGE="ghcr.io/jjcorderomejia/puna-claudex:${1:-latest}"
 export HOST_HOME="${HOST_HOME:-$HOME}"
+export STORAGE_CLASS="${STORAGE_CLASS:-local-path}"
 
 _wait_deploy() { kubectl -n puna rollout status deployment/"$1" --timeout=120s; }
 
 mkdir -p "$REPO_ROOT/k8s/_rendered"
-envsubst '${PUNA_IMAGE} ${HOST_HOME}' < "$REPO_ROOT/k8s/puna.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+envsubst '${PUNA_IMAGE} ${HOST_HOME}' < "$REPO_ROOT/k8s/puna.yaml.tpl"    > "$REPO_ROOT/k8s/_rendered/puna.yaml"
+envsubst '${STORAGE_CLASS}'           < "$REPO_ROOT/k8s/postgres.yaml.tpl" > "$REPO_ROOT/k8s/_rendered/postgres.yaml"
 
 kubectl apply -f "$REPO_ROOT/k8s/namespace.yaml"
+kubectl apply -f "$REPO_ROOT/k8s/_rendered/postgres.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/redis.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/configmap.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/netpol.yaml"
 kubectl apply -f "$REPO_ROOT/k8s/_rendered/puna.yaml"
 
+kubectl rollout restart deployment/puna -n puna
+_wait_deploy puna-postgres
 _wait_deploy puna-redis
 _wait_deploy puna
 
