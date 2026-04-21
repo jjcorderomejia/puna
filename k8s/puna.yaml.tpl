@@ -31,6 +31,25 @@ spec:
         - name: ghcr-creds
 
       initContainers:
+        - name: seed-claude-config
+          image: ${PUNA_IMAGE}
+          imagePullPolicy: Always
+          command:
+            - sh
+            - -c
+            - |
+              mkdir -p ${HOST_HOME}/.puna
+              [ -f ${HOST_HOME}/.puna/settings.json ] || cp /home/node/.claude/settings.json ${HOST_HOME}/.puna/settings.json
+              [ -f ${HOST_HOME}/.puna/.claude.json ]  || cp /home/node/.claude.json ${HOST_HOME}/.puna/.claude.json
+          securityContext:
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: [ALL]
+            runAsUser: 1000
+            runAsGroup: 1000
+          volumeMounts:
+            - name: home
+              mountPath: ${HOST_HOME}
         - name: wait-for-postgres
           image: postgres:16-alpine
           command: ["sh", "-c", "until pg_isready -h puna-postgres -U litellm; do sleep 2; done"]
@@ -136,6 +155,12 @@ spec:
           volumeMounts:
             - name: home
               mountPath: ${HOST_HOME}
+            - name: home
+              mountPath: /home/node/.claude
+              subPath: .puna
+            - name: home
+              mountPath: /home/node/.claude.json
+              subPath: .puna/.claude.json
           env:
             - name: CLAUDE_CODE_USE_OPENAI
               value: "1"
