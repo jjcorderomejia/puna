@@ -5,7 +5,7 @@
 
 ---
 
-A self-hosted coding agent running on Kubernetes. Claudex (Claude Code CLI) runs in a pod, routes every API call through a LiteLLM sidecar to DeepSeek, and caches responses in Redis. You connect via `kubectl exec` and get a full coding assistant with persistent workspace storage — no cloud subscription, no data leaving your cluster.
+A self-hosted coding agent running on Kubernetes. PUNA (Claude Code CLI fork) runs in a pod, routes every API call through a LiteLLM sidecar to DeepSeek, and caches responses in Redis. You connect via `puna` and get a full coding assistant with direct access to your server filesystem — no cloud subscription, no data leaving your cluster.
 
 Designed as portable IaC: a client installs the full stack on any K8s cluster with a single command.
 
@@ -15,23 +15,27 @@ Designed as portable IaC: a client installs the full stack on any K8s cluster wi
 
 ```mermaid
 flowchart LR
-    Dev(["kubectl exec\n(claudex container)"])
+    Dev(["puna [path]\n(local wrapper)"])
+    PUNA["PUNA container\n(claudex CLI)"]
     LiteLLM["LiteLLM sidecar\n127.0.0.1:4000"]
+    Postgres[("PostgreSQL\nkey management")]
     Redis[("Redis\nresponse cache")]
     DeepSeek["DeepSeek API\ndeepseek-chat / deepseek-reasoner"]
-    Workspace[("PVC\n/workspace")]
+    FS[("Host filesystem\n/home/user")]
 
-    Dev -->|OpenAI-compat API| LiteLLM
+    Dev -->|kubectl exec| PUNA
+    PUNA -->|OpenAI-compat API| LiteLLM
+    LiteLLM --- Postgres
     LiteLLM -->|cache hit| Redis
     LiteLLM -->|cache miss| DeepSeek
     DeepSeek -->|response| LiteLLM
     LiteLLM -->|cached response| Redis
-    Dev --- Workspace
+    PUNA --- FS
 ```
 
-Claudex starts with `CLAUDE_CODE_USE_OPENAI=1` pointing at `http://localhost:4000`. LiteLLM receives the request, checks Redis (TTL 2h), and either returns the cached response or forwards to DeepSeek. The model names Claudex sees (`deepseek-chat`, `deepseek-reasoner`) are patched into the source before the image build — the `/model` picker shows only the two DeepSeek models.
+PUNA starts with `CLAUDE_CODE_USE_OPENAI=1` pointing at `http://localhost:4000`. LiteLLM receives the request, authenticates it via master key (stored in K8s secret), checks Redis (TTL 2h), and either returns the cached response or forwards to DeepSeek. LiteLLM uses PostgreSQL for key and spend management.
 
-The claudex container mounts the server user's home directory at the same path it has on the host, so all projects are immediately available at their real paths — no syncing, no cloning. Agent memory persists in `.claude/` inside each project directory, exactly as Claude Code does locally.
+The PUNA container mounts the server user's home directory at the same path it has on the host, so all projects are immediately available at their real paths — no syncing, no cloning. Agent memory persists in `.claude/` inside each project directory, exactly as Claude Code does locally.
 
 Two models are available:
 
@@ -46,11 +50,12 @@ Two models are available:
 
 | Layer | Technology | Version |
 |-------|-----------|---------|
-| Agent CLI | Claudex (Claude Code fork) | vendored |
-| API router | LiteLLM | v1.83.10 (pinned) |
+| Agent CLI | PUNA (Claude Code fork) | vendored |
+| API router | LiteLLM | v1.83.7 (pinned) |
+| Key management | PostgreSQL | 16-alpine |
 | Response cache | Redis | 7-alpine |
 | Inference | DeepSeek API | V3 / R1 |
-| Workspace storage | hostPath (server home dir, same path as host) | — |
+| Workspace | hostPath (server home dir, same path as host) | — |
 | Registry | GHCR | — |
 | Platform | Kubernetes | — |
 
@@ -58,27 +63,27 @@ Two models are available:
 
 ## Design decisions
 
-**LiteLLM runs as a sidecar, not a separate service.** Claudex and LiteLLM share `localhost:4000` — no service discovery, no network policy to manage, no cross-pod latency. The tradeoff is that scaling the pod scales both containers together, which is acceptable for a single-user coding agent.
+**LiteLLM runs as a sidecar, not a separate service.** PUNA and LiteLLM share `localhost:4000` — no service discovery, no network policy to manage, no cross-pod latency. The tradeoff is that scaling the pod scales both containers together, which is acceptable for a single-user coding agent.
 
-**Claudex source is vendored from a controlled fork with source fixes applied.** `vendor.sh` clones from `github.com/jjcorderomejia/Claudex` — a standalone mirror with no upstream fork relationship — and strips the `.git` directory. The fork contains two upstream bug fixes (orphaned dead code in `Config.tsx`, wrong `ThemePicker` import path) required for the build to succeed. The image build has no outbound network dependency on any third-party repo.
+**LiteLLM authenticates requests via master key backed by PostgreSQL.** LiteLLM v1.83+ requires a database for key management. PostgreSQL 16-alpine runs as a dedicated pod with a 1Gi PVC. The master key is auto-generated at bootstrap and shared between LiteLLM and the PUNA container — no human ever sees it.
 
-**The claudex container stays alive waiting for `kubectl exec`.** `CMD` is `tail -f /dev/null` — the container is a persistent shell host, not an auto-running process. All sessions are initiated via `kubectl exec ... -- puna`. Model selection (`deepseek-chat` vs `deepseek-reasoner`) is set by the `puna` entrypoint via `OPENAI_MODEL` env var at session start.
+**PUNA source is vendored from a controlled fork.** `vendor.sh` clones from `github.com/jjcorderomejia/Claudex` — a standalone mirror with upstream bug fixes and full PUNA rebranding applied. The `.git` directory is stripped. The image build has no outbound network dependency on any third-party repo.
+
+**The PUNA container stays alive waiting for `kubectl exec`.** `CMD` is `tail -f /dev/null` — the container is a persistent shell host, not an auto-running process. All sessions are initiated via the local `puna` wrapper. Model selection (`deepseek-chat` vs `deepseek-reasoner`) is set by the `puna` entrypoint via `OPENAI_MODEL` env var at session start.
 
 **Build and deploy are fully separated.** CI (GitHub Actions) owns the image build and pushes to GHCR via OIDC — no stored credentials anywhere. `bootstrap.sh` and `deploy.sh` only apply K8s manifests; they never invoke Docker.
 
 **Every image is signed.** CI signs each image by digest using cosign keyless signing (OIDC-based, no private key). The signature proves the image came from this repository's CI pipeline and has not been tampered with in the registry.
 
-**Claudex runs as non-root; LiteLLM runs as its own user.** The claudex container runs as the `node` user (uid 1000, built into `node:20-alpine`). LiteLLM runs as whatever user its upstream image specifies — forcing uid 1000 onto it breaks its internal path writes. Both containers drop all Linux capabilities and disable privilege escalation. The pod enforces `seccompProfile: RuntimeDefault`.
+**PUNA runs as non-root; LiteLLM runs as its own user.** The PUNA container runs as the `node` user (uid 1000). LiteLLM runs as whatever user its upstream image specifies. PostgreSQL runs as uid 999. All containers drop Linux capabilities and disable privilege escalation. The pod enforces `seccompProfile: RuntimeDefault`.
 
-**Network policy enforces least privilege.** The puna pod has no ingress and restricted egress: DNS, Redis (in-cluster only), and port 443 to public IPs (DeepSeek API). The Redis pod accepts connections only from the puna pod. `kubectl exec` tunnels through the K8s API server and is unaffected.
+**Network policy enforces least privilege.** The puna pod has no ingress and restricted egress: DNS, Redis (in-cluster), PostgreSQL (in-cluster), and port 443 to public IPs (DeepSeek API). Redis and PostgreSQL pods accept connections only from the puna pod. `kubectl exec` tunnels through the K8s API server and is unaffected.
 
-**All manifest variables are template-substituted.** `puna.yaml.tpl` uses `envsubst` at apply time. `${PUNA_IMAGE}` selects the image tag; `${HOST_HOME}` is the server user's home directory (defaults to `$HOME` of whoever runs `bootstrap.sh`) — making the stack portable across any K8s cluster and any user, with no file edits required.
+**All manifest variables are template-substituted.** `puna.yaml.tpl`, `postgres.yaml.tpl` use `envsubst` at apply time. `${PUNA_IMAGE}` selects the image tag; `${HOST_HOME}` is the server user's home directory; `${STORAGE_CLASS}` selects the PVC storage class (default: `local-path`) — making the stack portable across any K8s cluster and any user with no file edits required.
 
-**Secrets are typed once, never stored in files.** `bootstrap.sh` prompts for the GHCR read-only token and DeepSeek API key on first run and passes them directly to `kubectl create secret`. `LITELLM_MASTER_KEY` and `REDIS_PASSWORD` are generated with `openssl rand -hex 32` — no human ever sees them. All subsequent runs skip the prompt if the secrets already exist in K8s.
+**Secrets are typed once, never stored in files.** `bootstrap.sh` prompts for the GHCR read-only token and DeepSeek API key on first run. `LITELLM_MASTER_KEY`, `REDIS_PASSWORD`, and `POSTGRES_PASSWORD` are generated with `openssl rand -hex 32` — no human ever sees them. All subsequent runs skip the prompt if the secrets already exist in K8s.
 
-**`puna` enforces K8s-only execution.** The entrypoint checks for `KUBERNETES_SERVICE_HOST` (injected automatically into every K8s pod) and exits with the correct `kubectl exec` command if run outside the cluster.
-
-**Redis requires a password.** Auto-generated at bootstrap and mounted from `puna-secrets/REDIS_PASSWORD` into both the LiteLLM config and the `wait-for-redis` init container. Unauthenticated Redis is not used.
+**`puna` enforces K8s-only execution.** The entrypoint checks for `KUBERNETES_SERVICE_HOST` (injected automatically into every K8s pod) and exits with the correct command if run outside the cluster.
 
 ---
 
@@ -91,6 +96,7 @@ Two models are available:
 | DeepSeek API key | user | once, during `./bootstrap.sh` | stored in K8s, never asked again |
 | LiteLLM master key | nobody | — | auto-generated by `openssl rand` |
 | Redis password | nobody | — | auto-generated by `openssl rand` |
+| PostgreSQL password | nobody | — | auto-generated by `openssl rand` |
 
 After `./bootstrap.sh` runs once, zero human interaction is required at runtime.
 
@@ -106,11 +112,13 @@ After `./bootstrap.sh` runs once, zero human interaction is required at runtime.
 
 Checks prerequisites (`kubectl`, `openssl`, cluster access), prompts for registry pull token and DeepSeek API key, generates all internal secrets, applies manifests, and waits for a healthy rollout.
 
-**Override image or home dir (optional):**
+**Override image, home dir, or storage class (optional):**
 
 ```bash
 PUNA_IMAGE=ghcr.io/jjcorderomejia/puna-claudex:abc1234 ./bootstrap.sh
-HOST_HOME=/home/alice ./bootstrap.sh   # if running bootstrap.sh as a different user
+HOST_HOME=/home/alice ./bootstrap.sh      # if running as a different user
+STORAGE_CLASS=gp2 ./bootstrap.sh          # EKS
+STORAGE_CLASS=standard ./bootstrap.sh     # GKE / AKS
 ```
 
 **Dev — re-apply manifests with a specific tag:**
@@ -144,18 +152,18 @@ puna/
 │       └── build.yml           # CI — OIDC push + cosign signing on merge to master
 ├── agent/
 │   ├── CLAUDE.md               # agent persona and behavior rules
+│   ├── claude-config.json      # pre-baked config (skips onboarding wizard)
 │   ├── settings.json           # model defaults, telemetry off
 │   └── puna                    # entrypoint wrapper (K8s-only guard)
 ├── k8s/
 │   ├── namespace.yaml
 │   ├── netpol.yaml             # network policy — zero ingress, restricted egress
 │   ├── puna.yaml.tpl           # main deployment template (${PUNA_IMAGE}, ${HOST_HOME})
+│   ├── postgres.yaml.tpl       # PostgreSQL deployment + service + PVC (${STORAGE_CLASS})
 │   ├── redis.yaml
 │   └── configmap.yaml          # LiteLLM config mounted into sidecar
-├── patch/
-│   └── model-picker.sh         # patches Claudex source model list pre-build
-├── Dockerfile                  # multi-stage: build Claudex → non-root runtime image
-├── vendor.sh                   # clone + strip Claudex source from own fork
+├── Dockerfile                  # multi-stage: build PUNA → non-root runtime image
+├── vendor.sh                   # clone + strip PUNA source from own fork
 ├── bootstrap.sh                # one-click install for any K8s cluster
 └── deploy.sh                   # dev convenience — apply manifests only
 ```
