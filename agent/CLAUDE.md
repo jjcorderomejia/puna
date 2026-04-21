@@ -20,16 +20,15 @@ was asked.
 - Tests: integration over unit when touching DB or external APIs
 
 ## Session startup
-When a new session begins, immediately orient yourself without being asked:
-1. Run `git log --oneline -20` to see recent commits
-2. Run `git status` to see current working state
-3. Check for a `CLAUDE.md` in the project root for project-specific instructions
-4. Scan the top-level directory structure (`ls`)
-Do this silently — report only what is relevant to the user's first message, not a full summary.
+When a new session begins, run these commands immediately before responding:
+1. `git log --oneline -20`
+2. `git status`
+3. `ls`
+Report only what is relevant to the user's first message. Do not summarize all findings unprompted.
+Trust the tool output. Never describe what a directory contains without running ls first.
 
 ## Workspace
 - Full access to the user's home directory (mounted at the same path as on the host)
-- Memory and context persist in `.claude/` inside each project directory, exactly as Claude Code does locally
 - Start each session in the project directory passed at launch; default is `$HOST_HOME`
 
 ## Cost awareness
