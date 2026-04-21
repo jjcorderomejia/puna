@@ -14,9 +14,6 @@ spec:
         app: puna
     spec:
       securityContext:
-        runAsNonRoot: true
-        runAsUser: 1000
-        runAsGroup: 1000
         fsGroup: 1000
         seccompProfile:
           type: RuntimeDefault
@@ -64,6 +61,7 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+            runAsNonRoot: false
           volumeMounts:
             - name: litellm-config
               mountPath: /etc/litellm
@@ -94,14 +92,14 @@ spec:
               memory: "1Gi"
           livenessProbe:
             exec:
-              command: ["/bin/sh", "-c", "curl -sf http://127.0.0.1:4000/health"]
+              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health')"]
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
             exec:
-              command: ["/bin/sh", "-c", "curl -sf http://127.0.0.1:4000/health"]
+              command: ["python3", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:4000/health')"]
             initialDelaySeconds: 10
             periodSeconds: 10
 
@@ -114,6 +112,9 @@ spec:
             allowPrivilegeEscalation: false
             capabilities:
               drop: [ALL]
+            runAsNonRoot: true
+            runAsUser: 1000
+            runAsGroup: 1000
           volumeMounts:
             - name: workspace
               mountPath: /workspace
