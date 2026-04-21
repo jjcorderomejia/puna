@@ -32,6 +32,9 @@ jobs:
       - name: Vendor Claudex
         run: ./vendor.sh
 
+      - name: Patch model picker
+        run: ./patch/model-picker.sh
+
       - name: Build and push
         id: build
         uses: docker/build-push-action@v5
