@@ -41,6 +41,7 @@ spec:
               mkdir -p ${HOST_HOME}/.puna
               [ -f ${HOST_HOME}/.puna/settings.json ] || cp /home/node/.claude/settings.json ${HOST_HOME}/.puna/settings.json
               [ -f ${HOST_HOME}/.puna/.claude.json ]  || cp /home/node/.claude.json ${HOST_HOME}/.puna/.claude.json
+              cp /home/node/.claude/CLAUDE.md ${HOST_HOME}/.puna/CLAUDE.md
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
