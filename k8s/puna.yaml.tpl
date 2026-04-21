@@ -178,6 +178,18 @@ spec:
               value: "${HOST_HOME}"
             - name: NODE_OPTIONS
               value: "--max-old-space-size=2048"
+            - name: ANTHROPIC_DEFAULT_SONNET_MODEL
+              value: "deepseek-chat"
+            - name: ANTHROPIC_DEFAULT_SONNET_MODEL_NAME
+              value: "DeepSeek V3"
+            - name: ANTHROPIC_DEFAULT_SONNET_MODEL_DESCRIPTION
+              value: "Fast — everyday coding tasks"
+            - name: ANTHROPIC_DEFAULT_OPUS_MODEL
+              value: "deepseek-reasoner"
+            - name: ANTHROPIC_DEFAULT_OPUS_MODEL_NAME
+              value: "DeepSeek R1"
+            - name: ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION
+              value: "Slow — architecture, complex debugging"
           resources:
             requests:
               cpu: "1000m"

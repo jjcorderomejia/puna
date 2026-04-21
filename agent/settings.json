@@ -5,5 +5,5 @@
   "theme": "dark",
   "preferredNotifChannel": "terminal_bell",
   "hasAcknowledgedCostThreshold": true,
-  "availableModels": ["deepseek-chat", "deepseek-reasoner"]
+  "availableModels": ["sonnet", "opus"]
 }
