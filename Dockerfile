@@ -23,6 +23,7 @@ RUN mkdir -p /home/node/.claude /workspace \
     && chown -R node:node /home/node /workspace
 
 COPY --chown=node:node agent/settings.json /home/node/.claude/settings.json
+COPY --chown=node:node agent/claude-config.json /home/node/.claude.json
 COPY --chown=node:node agent/CLAUDE.md /workspace/CLAUDE.md
 COPY agent/puna /usr/local/bin/puna
 RUN chmod +x /usr/local/bin/puna
