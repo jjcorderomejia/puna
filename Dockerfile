@@ -37,4 +37,4 @@ ENV OPENAI_MODEL=deepseek-chat
 ENV NODE_TLS_REJECT_UNAUTHORIZED=1
 ENV HOME=/home/node
 
-CMD ["puna"]
+CMD ["tail", "-f", "/dev/null"]
