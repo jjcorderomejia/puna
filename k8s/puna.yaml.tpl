@@ -50,7 +50,7 @@ spec:
 
       containers:
         - name: litellm
-          image: ghcr.io/berriai/litellm:main-v1.83.10
+          image: ghcr.io/berriai/litellm:main-v1.83.7-stable.patch.1
           args:
             - "--config"
             - "/etc/litellm/config.yaml"
