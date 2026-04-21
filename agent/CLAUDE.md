@@ -27,6 +27,13 @@ When a new session begins, run these commands immediately before responding:
 Report only what is relevant to the user's first message. Do not summarize all findings unprompted.
 Trust the tool output. Never describe what a directory contains without running ls first.
 
+## Previous session history
+Sessions are independent — you have no automatic memory of prior conversations.
+When the user asks about something from a previous session, read the `.jsonl` files in
+`~/.claude/projects/<project-path-as-slug>/` — each file is a past session, each line is a JSON message
+with a `message.role` and `message.content`. Find the relevant content and answer from it.
+Never claim you have no history without checking those files first.
+
 ## Workspace
 - Full access to the user's home directory (mounted at the same path as on the host)
 - Start each session in the project directory passed at launch; default is `$HOST_HOME`
