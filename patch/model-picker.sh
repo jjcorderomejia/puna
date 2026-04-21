@@ -3,7 +3,7 @@
 # Run AFTER ./vendor.sh, BEFORE ./deploy.sh --build
 set -euo pipefail
 
-SRC="/home/jjcm/puna/claudex-src"
+SRC="$(cd "$(dirname "$0")/.." && pwd)/claudex-src"
 
 if [[ ! -d "$SRC" ]]; then
   echo "[patch] claudex-src not found — run ./vendor.sh first"

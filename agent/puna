@@ -5,6 +5,13 @@
 #   puna --think    → deepseek-reasoner (R1, thorough)
 set -euo pipefail
 
+# Must run inside a K8s pod — KUBERNETES_SERVICE_HOST is injected automatically
+if [[ -z "${KUBERNETES_SERVICE_HOST:-}" ]]; then
+  echo "[puna] error: must run inside a Kubernetes pod" >&2
+  echo "[puna] use: kubectl exec -it -n puna deploy/puna -c claudex -- puna" >&2
+  exit 1
+fi
+
 if [[ "${1:-}" == "--think" ]]; then
   shift
   export OPENAI_MODEL="deepseek-reasoner"
