@@ -126,14 +126,9 @@ Assumes secrets already exist in K8s. Skips all prompts.
 ## Connect
 
 ```bash
-# Start in home dir (default)
-kubectl exec -it -n puna deploy/puna -c claudex -- puna
-
-# Start in a specific project
-kubectl exec -it -n puna deploy/puna -c claudex -- puna /home/jjcm/huanca
-
-# Reasoning mode (R1) in a specific project
-kubectl exec -it -n puna deploy/puna -c claudex -- puna --think /home/jjcm/huanca
+puna                          # start in home dir
+puna /path/to/project         # start in a specific project
+puna --think /path/to/project # R1 reasoning mode
 ```
 
 All projects are available at their real server paths. Agent memory persists in `.claude/` inside each project directory across pod restarts.
