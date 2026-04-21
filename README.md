@@ -58,15 +58,15 @@ Two models are available:
 
 **LiteLLM runs as a sidecar, not a separate service.** Claudex and LiteLLM share `localhost:4000` — no service discovery, no network policy to manage, no cross-pod latency. The tradeoff is that scaling the pod scales both containers together, which is acceptable for a single-user coding agent.
 
-**Model names are patched at build time, not at runtime.** Claudex hardcodes Anthropic model identifiers in its source. `patch/model-picker.sh` runs `sed` over the vendored TypeScript before `bun build` — the resulting binary never references Anthropic models. A runtime shim would need to intercept model-list API calls; the build-time patch is simpler and more complete.
+**Claudex source is vendored from a controlled fork with source fixes applied.** `vendor.sh` clones from `github.com/jjcorderomejia/Claudex` — a standalone mirror with no upstream fork relationship — and strips the `.git` directory. The fork contains two upstream bug fixes (orphaned dead code in `Config.tsx`, wrong `ThemePicker` import path) required for the build to succeed. The image build has no outbound network dependency on any third-party repo.
 
-**Claudex source is vendored from a controlled fork.** `vendor.sh` clones from `github.com/jjcorderomejia/Claudex` — a standalone mirror with no upstream fork relationship — and strips the `.git` directory. The image build has no outbound network dependency on any third-party repo.
+**The claudex container stays alive waiting for `kubectl exec`.** `CMD` is `tail -f /dev/null` — the container is a persistent shell host, not an auto-running process. All sessions are initiated via `kubectl exec ... -- puna`. Model selection (`deepseek-chat` vs `deepseek-reasoner`) is set by the `puna` entrypoint via `OPENAI_MODEL` env var at session start.
 
 **Build and deploy are fully separated.** CI (GitHub Actions) owns the image build and pushes to GHCR via OIDC — no stored credentials anywhere. `bootstrap.sh` and `deploy.sh` only apply K8s manifests; they never invoke Docker.
 
 **Every image is signed.** CI signs each image by digest using cosign keyless signing (OIDC-based, no private key). The signature proves the image came from this repository's CI pipeline and has not been tampered with in the registry.
 
-**All containers run as non-root.** The Claudex image runs as uid 1000 (`puna` user). All containers drop all Linux capabilities and disable privilege escalation. The pod enforces `seccompProfile: RuntimeDefault`.
+**Claudex runs as non-root; LiteLLM runs as its own user.** The claudex container runs as the `node` user (uid 1000, built into `node:20-alpine`). LiteLLM runs as whatever user its upstream image specifies — forcing uid 1000 onto it breaks its internal path writes. Both containers drop all Linux capabilities and disable privilege escalation. The pod enforces `seccompProfile: RuntimeDefault`.
 
 **Network policy enforces least privilege.** The puna pod has no ingress and restricted egress: DNS, Redis (in-cluster only), and port 443 to public IPs (DeepSeek API). The Redis pod accepts connections only from the puna pod. `kubectl exec` tunnels through the K8s API server and is unaffected.
 
