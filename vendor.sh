@@ -11,7 +11,7 @@ if [[ -d "$DEST" ]]; then
 fi
 
 echo "[puna] Cloning Claudex into $DEST ..."
-git clone --depth 1 https://github.com/l3tchupkt/Claudex "$DEST"
+git clone --depth 1 https://github.com/jjcorderomejia/Claudex "$DEST"
 
 # Strip git history — we own this copy now
 rm -rf "$DEST/.git"
