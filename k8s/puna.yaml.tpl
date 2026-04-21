@@ -93,7 +93,7 @@ spec:
             periodSeconds: 10
 
         - name: claudex
-          image: ghcr.io/jjcorderomejia/puna-claudex:${GIT_SHA}
+          image: ${PUNA_IMAGE}
           imagePullPolicy: Always
           stdin: true
           tty: true
