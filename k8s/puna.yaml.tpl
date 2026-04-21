@@ -93,19 +93,15 @@ spec:
               cpu: "1000m"
               memory: "1Gi"
           livenessProbe:
-            httpGet:
-              path: /health
-              port: 4000
-              host: 127.0.0.1
+            exec:
+              command: ["/bin/sh", "-c", "curl -sf http://127.0.0.1:4000/health"]
             initialDelaySeconds: 15
             periodSeconds: 20
             timeoutSeconds: 5
             failureThreshold: 3
           readinessProbe:
-            httpGet:
-              path: /health
-              port: 4000
-              host: 127.0.0.1
+            exec:
+              command: ["/bin/sh", "-c", "curl -sf http://127.0.0.1:4000/health"]
             initialDelaySeconds: 10
             periodSeconds: 10
 
