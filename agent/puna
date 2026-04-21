@@ -20,4 +20,4 @@ else
   export OPENAI_MODEL="deepseek-chat"
 fi
 
-exec claude "$@"
+exec claudex "$@"
