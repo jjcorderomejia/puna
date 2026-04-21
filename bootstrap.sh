@@ -25,8 +25,7 @@ _check_prereqs
 # ── 0. Namespace ──────────────────────────────────────────────────────────────
 kubectl apply -f "$REPO_ROOT/k8s/namespace.yaml"
 
-# ── 1. Secrets
- (idempotent) ───────────────────────────────────────────────────
+# ── 1. Secrets (idempotent) ──────────────────────────────────────────────────
 
 # Registry pull secret — read-only token, never touches Docker
 if ! kubectl -n puna get secret ghcr-creds &>/dev/null; then
