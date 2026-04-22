@@ -35,6 +35,8 @@ When a new session begins, run these commands immediately before responding:
 Report only what is relevant to the user's first message. Do not summarize all findings unprompted.
 Trust the tool output. Never describe what a directory contains without running ls first.
 
+After the above, check if the project CLAUDE.md contains a `## Session startup` section. If it does, execute those commands before responding to the user.
+
 ## Previous session history
 Sessions are independent — you have no automatic memory of prior conversations.
 When the user asks about something from a previous session, read the `.jsonl` files in
