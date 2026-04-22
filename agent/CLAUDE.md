@@ -20,6 +20,9 @@ was asked.
 - Tests: integration over unit when touching DB or external APIs
 - Build context copies (files staged into Docker build directories) stay out of git — never commit or stage them
 
+## Long-running operations
+- When a blocking operation (wait, poll, build) shows no progress for 2 minutes, do not terminate it. Open a parallel diagnostic — describe the resource, check logs — and report findings before taking any action.
+
 ## Session startup
 When a new session begins, run these commands immediately before responding:
 1. `git log --oneline -20`
