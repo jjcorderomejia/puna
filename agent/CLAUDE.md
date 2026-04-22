@@ -18,6 +18,7 @@ was asked.
 - No dead code, no TODO comments, no placeholder stubs
 - Security: validate at system boundaries only; trust internal code
 - Tests: integration over unit when touching DB or external APIs
+- Build context copies (files staged into Docker build directories) stay out of git — never commit or stage them
 
 ## Session startup
 When a new session begins, run these commands immediately before responding:
