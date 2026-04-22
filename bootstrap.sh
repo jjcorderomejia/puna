@@ -52,6 +52,15 @@ if ! kubectl -n puna get secret puna-secrets &>/dev/null; then
   unset DEEPSEEK_API_KEY
 fi
 
+# GitHub PAT for MCP server
+if ! kubectl -n puna get secret puna-github &>/dev/null; then
+  read -s -p "GitHub Personal Access Token (for MCP): " GITHUB_PAT
+  echo
+  kubectl -n puna create secret generic puna-github \
+    --from-literal=GITHUB_PERSONAL_ACCESS_TOKEN="$GITHUB_PAT"
+  unset GITHUB_PAT
+fi
+
 # Postgres secret — auto-generated, separate from puna-secrets
 if ! kubectl -n puna get secret puna-postgres-secret &>/dev/null; then
   kubectl -n puna create secret generic puna-postgres-secret \

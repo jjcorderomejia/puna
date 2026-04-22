@@ -190,6 +190,11 @@ spec:
               value: "DeepSeek R1"
             - name: ANTHROPIC_DEFAULT_OPUS_MODEL_DESCRIPTION
               value: "Slow — architecture, complex debugging"
+            - name: GITHUB_PERSONAL_ACCESS_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: puna-github
+                  key: GITHUB_PERSONAL_ACCESS_TOKEN
           resources:
             requests:
               cpu: "1000m"

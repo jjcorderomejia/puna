@@ -5,5 +5,11 @@
   "theme": "dark",
   "preferredNotifChannel": "terminal_bell",
   "hasAcknowledgedCostThreshold": true,
-  "availableModels": ["sonnet", "opus"]
+  "availableModels": ["sonnet", "opus"],
+  "mcpServers": {
+    "github": {
+      "command": "npx",
+      "args": ["-y", "@modelcontextprotocol/server-github"]
+    }
+  }
 }
