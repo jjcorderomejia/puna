@@ -186,7 +186,7 @@ spec:
             - name: KUBECONFIG
               value: "${HOST_HOME}/.kube/config"
             - name: NODE_OPTIONS
-              value: "--max-old-space-size=2048"
+              value: "--max-old-space-size=4096"
             - name: ANTHROPIC_DEFAULT_SONNET_MODEL
               value: "deepseek-chat"
             - name: ANTHROPIC_DEFAULT_SONNET_MODEL_NAME

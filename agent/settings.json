@@ -1,5 +1,6 @@
 {
   "telemetry": false,
+  "autoCompactEnabled": true,
   "autoUpdaterStatus": "disabled",
   "model": "deepseek-chat",
   "theme": "dark",
