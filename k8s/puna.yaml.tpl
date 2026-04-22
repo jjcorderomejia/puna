@@ -210,4 +210,4 @@ spec:
               memory: "2Gi"
             limits:
               cpu: "3000m"
-              memory: "4Gi"
+              memory: "6Gi"
