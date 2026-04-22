@@ -46,6 +46,45 @@ Two models are available:
 
 ---
 
+## Startup chain
+
+Two phases precede any running pod: **build** and **apply**. Both are prerequisites — the pod cannot start until both are complete.
+
+**Build (CI, `build.yml`)**
+GitHub Actions builds the Docker image on every merge to `master`, packages the PUNA binary, and pushes to GHCR. The image contains every binary available to PUNA at runtime — `git`, `jq`, `kubectl`. Adding a new runtime tool means changing `Dockerfile` and triggering a new build.
+
+**Apply (`deploy.sh` / `bootstrap.sh`)**
+Renders `.tpl` manifests via `envsubst`, then applies them in order: namespace → postgres → redis → configmap → **netpol** → puna deployment → rollout restart. `netpol.yaml` is applied here — it defines every network destination the pod is allowed to reach. Adding a new external endpoint (an API, the K8s API server) requires an egress rule in `netpol.yaml` before the pod needs it.
+
+**Pod startup (K8s-orchestrated)**
+
+```
+Init containers — sequential, all must exit 0 before main containers start:
+  1. seed-claude-config   seeds /home/node/.claude config; copies SSH keys from
+                          hostPath into emptyDir volume at /home/node/.ssh
+  2. wait-for-postgres    blocks until PostgreSQL accepts connections on :5432
+  3. wait-for-redis       blocks until Redis responds to PING on :6379
+
+Main containers — start in parallel after init containers complete:
+  litellm                 LiteLLM on 127.0.0.1:4000, backed by PostgreSQL (key mgmt)
+                          and Redis (response cache)
+  claudex                 tail -f /dev/null; SSH keys at /home/node/.ssh;
+                          kubectl available via ${HOST_HOME}/.kube/config
+```
+
+**Capability model**
+
+`Dockerfile` and `netpol.yaml` are the two-part enabler for any new pod capability:
+
+| Capability | Enabler | What changes |
+|---|---|---|
+| New runtime binary | `Dockerfile` | `apk add` → CI rebuilds image |
+| New network destination | `netpol.yaml` | egress rule → re-apply manifest |
+
+Both must be in place before the pod starts. The image is immutable at runtime; network paths cannot be opened without a policy update. Every capability PUNA has maps back to an entry in one or both of these files.
+
+---
+
 ## Stack
 
 | Layer | Technology | Version |

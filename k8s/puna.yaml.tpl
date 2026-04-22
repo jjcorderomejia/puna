@@ -26,6 +26,8 @@ spec:
         - name: litellm-config
           configMap:
             name: puna-litellm-config
+        - name: ssh-keys
+          emptyDir: {}
 
       imagePullSecrets:
         - name: ghcr-creds
@@ -42,6 +44,9 @@ spec:
               cp /home/node/.claude/settings.json ${HOST_HOME}/.puna/settings.json
               [ -f ${HOST_HOME}/.puna/.claude.json ]  || cp /home/node/.claude.json ${HOST_HOME}/.puna/.claude.json
               cp /home/node/.claude/CLAUDE.md ${HOST_HOME}/.puna/CLAUDE.md
+              cp -r ${HOST_HOME}/.ssh/. /home/node/.ssh/
+              chmod 700 /home/node/.ssh
+              chmod 600 /home/node/.ssh/*
           securityContext:
             allowPrivilegeEscalation: false
             capabilities:
@@ -51,6 +56,8 @@ spec:
           volumeMounts:
             - name: home
               mountPath: ${HOST_HOME}
+            - name: ssh-keys
+              mountPath: /home/node/.ssh
         - name: wait-for-postgres
           image: postgres:16-alpine
           command: ["sh", "-c", "until pg_isready -h puna-postgres -U litellm; do sleep 2; done"]
@@ -112,8 +119,6 @@ spec:
                   key: POSTGRES_PASSWORD
             - name: DATABASE_URL
               value: "postgresql://litellm:$(POSTGRES_PASSWORD)@puna-postgres:5432/litellm"
-            - name: LITELLM_LOCAL_MODEL_COST_MAP
-              value: "True"
             - name: REDIS_HOST
               value: "puna-redis"
             - name: REDIS_PASSWORD
@@ -162,6 +167,8 @@ spec:
             - name: home
               mountPath: /home/node/.claude.json
               subPath: .puna/.claude.json
+            - name: ssh-keys
+              mountPath: /home/node/.ssh
           env:
             - name: CLAUDE_CODE_USE_OPENAI
               value: "1"
@@ -176,6 +183,8 @@ spec:
               value: "deepseek-chat"
             - name: HOST_HOME
               value: "${HOST_HOME}"
+            - name: KUBECONFIG
+              value: "${HOST_HOME}/.kube/config"
             - name: NODE_OPTIONS
               value: "--max-old-space-size=2048"
             - name: ANTHROPIC_DEFAULT_SONNET_MODEL
