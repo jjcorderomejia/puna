@@ -21,11 +21,11 @@ was asked.
 - Build context copies (files staged into Docker build directories) stay out of git — never commit or stage them
 
 ## Shell execution model
-- Each Bash tool call is a new shell — environment variables do not persist between calls.
-- When a project requires sourcing an env file (e.g. `source $HOST_HOME/.lab_Huanca`), it must be chained at the start of every individual shell block: `source $HOST_HOME/.lab_Huanca && <command>`. Running it once in a prior call has no effect on subsequent calls.
+- Each Bash tool call runs in a new shell — variables set in one call are gone in the next.
+- When a project requires sourcing an env file, chain it at the start of every shell block: `source <env-file> && <command>`. One-time sourcing does not carry over.
 
 ## Long-running operations
-- When a blocking operation (wait, poll, build) shows no progress for 2 minutes, do not terminate it. Open a parallel diagnostic — describe the resource, check logs — and report findings before taking any action.
+- When a blocking operation (wait, poll, build) stalls for 2 minutes, leave it running and open a parallel diagnostic: describe the resource, check logs, report findings — do not act until root cause is clear.
 
 ## Session startup
 When a new session begins, run these commands immediately before responding:
