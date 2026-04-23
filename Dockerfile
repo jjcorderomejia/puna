@@ -14,7 +14,7 @@ RUN mkdir -p /tmp/claudex-pkg && npm pack --pack-destination /tmp/claudex-pkg
 
 FROM node:20-alpine
 
-RUN apk add --no-cache bash git jq kubectl gettext
+RUN apk add --no-cache bash git jq kubectl gettext openssh
 
 RUN --mount=type=bind,from=builder,source=/tmp/claudex-pkg,target=/tmp/claudex-pkg \
     npm install -g /tmp/claudex-pkg/*.tgz
