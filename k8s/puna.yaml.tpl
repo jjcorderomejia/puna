@@ -13,6 +13,12 @@ spec:
       labels:
         app: puna
     spec:
+      # Pinned to node1 (hetz): the `home` volume below is a hostPath to /home/jjcm,
+      # which exists only on node1 — puna operates on the operator's home dir.
+      # Without this, on the 3-node cluster the scheduler can place puna on hetz2/hetz3
+      # where /home/jjcm is absent → FailedMount/Init hang (seen 2026-06-07, P10-13).
+      nodeSelector:
+        kubernetes.io/hostname: hetz
       securityContext:
         fsGroup: 1000
         seccompProfile:
