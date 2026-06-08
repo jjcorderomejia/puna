@@ -1,0 +1,43 @@
+# puna — CiliumNetworkPolicy: apiserver egress (Cilium-era fix · P2-4)
+#
+# WHY: under Cilium kubeProxyReplacement + socketLB, an EGRESS NetworkPolicy is
+# enforced against the POST-translation backend identity, NOT the ClusterIP.
+# A connection to the apiserver ClusterIP 10.96.0.1:443 is socket-LB-translated
+# at connect() to the apiserver backend :6443, whose Cilium identity is the
+# reserved `kube-apiserver`. A plain k8s NetworkPolicy `ipBlock` CIDR does NOT
+# match a node/apiserver identity by default ("CIDR-based selectors ignore nodes
+# by default" — docs.cilium.io layer3), so the existing
+# `6443 -> ipBlock 0.0.0.0/0` egress rule in netpol.yaml is silently INERT under
+# Cilium and puna's apiserver egress is DROPPED. This is the same P2 Calico->
+# Cilium regression already fixed for cert-manager (P2-3, panel whxsafb4o,
+# certified live via `cilium bpf policy get`); P2-4 closes the identical latent
+# gap for puna.
+#
+# FIX: the canonical, default-on Cilium idiom — grant egress to the reserved
+# `kube-apiserver` entity (CiliumNetworkPolicy). k8s NetworkPolicy + CNP ALLOW
+# rules are unioned additively, so this SUPPLEMENTS the existing 3 k8s
+# NetworkPolicies (DNS / redis / postgres / git-egress flows untouched) without
+# editing them. Scoped to endpointSelector `app: puna` (only the puna app talks
+# to the apiserver; puna-redis / puna-postgres run egress:[] and must NOT be
+# additively granted apiserver egress) and to 6443/TCP — minimal blast radius.
+#
+# Apply:  kubectl apply -f k8s/cilium-apiserver-egress.yaml
+# Verify: kubectl -n puna get cnp ; cilium bpf policy reflects the kube-apiserver allow
+---
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+metadata:
+  name: puna-apiserver-egress
+  namespace: puna
+spec:
+  # only the puna app legitimately talks to the apiserver; redis/postgres do not.
+  endpointSelector:
+    matchLabels:
+      app: puna
+  egress:
+    - toEntities:
+        - kube-apiserver
+      toPorts:
+        - ports:
+            - port: "6443"
+              protocol: TCP
