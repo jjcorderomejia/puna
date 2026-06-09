@@ -15,6 +15,17 @@ spec:
     spec:
       securityContext:
         fsGroup: 999
+      # P11-4.5 (§3 P10-13): spread off the node1 pile on recreate. puna-postgres
+      # is on longhorn-r2 (cross-node), so it is movable (unlike the puna APP pod,
+      # which is hostPath-pinned to node1). ScheduleAnyway / single replica → brief
+      # downtime tolerated, no stuck-Pending; governs future even placement.
+      topologySpreadConstraints:
+        - maxSkew: 1
+          topologyKey: kubernetes.io/hostname
+          whenUnsatisfiable: ScheduleAnyway
+          labelSelector:
+            matchLabels:
+              app: puna-postgres
       volumes:
         - name: data
           persistentVolumeClaim:
